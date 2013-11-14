@@ -1,0 +1,680 @@
+#!/usr/bin/env ruby
+# (C) Stephan Beyer, GPL, 2005
+# This is primarily written for ME, not for YOU, but you'll get
+# support from me if you have questions. -> s-beyer@gmx.net
+
+# Please read the documentation (README) and the comments (beginning
+# with an `#') carefully. You should only change the BASIC CONFIGURATION
+# except you REALLY know what you're doing.
+
+# The README file can be found at
+# http://noxa.de/~sbeyer/programming/projects/tools/ksp-sign/README
+
+
+#################### BASIC CONFIGURATION ####################
+
+##### $from represents the From: header of your mail
+$from = 'First and Last Name <email@domain.to>'
+
+
+##### $subject represents the Subject: header of your mail
+##### and $text - what do you think? - the mail text.
+# available variables which can be used in $subject, $text:
+#  %keyid% = long key ID
+#  %name% = name part of the uid
+#  %uid% = whole uid (without photo id and non-email uid)
+
+# These values are suggestions where you just need to modify `event'.
+# Maybe it's better if you edit the whole subject and text.
+event = 'big event with KSP'
+$subject = "Your signed key %keyid% (#{event})"
+
+$text = <<EOF
+Hi %name%,
+
+this is an automatic mail being sent to you because we verified
+our personalities and exchanged fingerprints at the
+	#{event}.
+
+Signed user id in this mail is
+	%uid%
+
+This mail may also contain signatures for a photo id or a user
+id without e-mail address.
+
+I did NOT send your signed key to a keyserver. You can do that using
+	gpg --send-keys %keyid%
+
+Best regards,
+#{$from}
+
+PS: Please don't forget to sign my key, too, if you have not 
+done that yet.
+
+-- 
+Mail sent using ksp-sign by Stephan Beyer
+http://noxa.de/~sbeyer/programming/projects/?dir=tools#ksp-sign
+EOF
+### The signature above is some advertising for my script (or the 
+### opposite if it's crap). Feel free to replace it with your
+### signature.
+
+
+### $sign_only_secure represents the way of dealing with sign-only keys.
+### See the README :)
+# Set this to `false' to send an unencrypted signed key.
+# Set this to `true' to send a mail with verification instructions.
+$sign_only_secure = true
+
+# true and false are case-sensitive! Write small letters!
+# `False' or `True' will result in a NameError.
+
+
+### $sign_only_text represents the text of a mail sending to a sign-only
+#### key owner if $sign_only_secure is true.
+# In $sign_only_text you should use the variable %random%, which will
+# be replaced by a random string.
+$sign_only_text = <<EOF
+Hi %name%,
+
+this is an automatic mail being sent to you because we verified
+our personalities and exchanged fingerprints at
+	#{event}.
+
+Because I want to sign your sign-only key 0x%keyid%,
+I need a reply from you which is _signed with that mentioned key_.
+
+In addition, the reply should contain the following random string
+to indicate that it's YOU who sends the signed reply, and not
+someone else:
+	%random%
+
+When I got your reply, I will send you the signature for the uid
+	%uid%
+Just tell me, if I should upload your key to a keyserver.
+
+Best regards,
+#{$from}
+
+-- 
+Mail sent using ksp-sign by Stephan Beyer
+http://noxa.de/~sbeyer/programming/projects/?dir=tools#ksp-sign
+EOF
+
+### $sendmail:
+# Set this to `true' to send mail via `sendmail' automatically.
+# Set this to `false' to generate a mutt-compatible mbox 
+$sendmail = false
+
+# again: `true' and `false' are case-sensitive.
+
+### $refreshkeyring:
+# Set this to `true' to fetch updated keys from a keyserver
+# Set this to `false' to keep the keys as they are
+$refreshkeyring = false
+
+# Advice about keyservers: Use subkeys.pgp.net or even better:
+# sks.keyserver.penguin.de in your gpg.conf! Don't use pgp.mit.edu!
+
+# Thank you for trying/using KSP-Sign.
+# Feel free to send feedback, suggestions, bug reports, patches, 
+# donations (via PayPal) to s-beyer@gmx.net :)
+# Avoid sending SPAM or mails looking like spam.
+#################### END OF BASIC CONFIGURATION ####################
+
+
+
+
+####################################################################
+# It's NOT recommended to change ANY of the following values.
+
+$progdir = ENV['HOME']+'/.ksp-sign'
+
+$daw ={
+# Default answers to questions:
+# Those marked with ### at the end of the line are rather arguable default
+# values, but you shouldn't change the other values.
+# Changing them could lead to undefined behaviour 
+	# Sign ALL uids?
+	'keyedit.sign_all.okay' => 'y',
+
+	# Really delete all uids?
+	'keyedit.remove.uid.okay' => 'y',
+
+	# Encrypt to untrusted keys?
+	'untrusted_key.override' => 'y',
+
+	# Signature expired, replace by new sig?
+	'sign_uid.replace_expired_okay' => 'y',
+
+	# Local signature -> Exportable signature
+	'sign_uid.local_promote_okay' => 'y',
+
+	# This key is due to expire on YYYY-MM-DD 
+	# Should the Signature expire at the same time?
+	'sign_uid.expire' => 'n',
+
+	# Cert class? sig0, sig1, sig2, sig3?
+	'sign_uid.class' => '3', ### (only if ask-cert-level is set)
+
+	# Really sign?
+	'sign_uid.okay' => 'y',
+
+	# key is revoked, still sign?
+	'keyedit.sign_revoked.okay' => 'n',
+
+	# Uid has revoked/expired - Still sign?
+	'sign_uid.revoke_okay' => 'n',
+	'sign_uid.expired_okay' => 'n',
+
+	# UID not self-signed. Sign anyway?
+	'sign_uid.nosig_okay' => 'n',
+
+	# PGP2 selfsig -> OpenPGP selfsig?
+	'sign_uid.v4_promote_okay' => 'y', ###
+
+	# Already signed, sign again?
+	'sign_uid.dupe_okay' => 'n',
+
+	# Key has expired, still sign?
+	'sign_uid.expired_okay' => 'n',
+
+	# v4 sig on v3? (unusuable for PGP 2.x)
+	'sign_uid.v4_on_v3_okay' => 'n',
+
+	# Delete good signatures?
+	'keyedit.delsig.valid' => 'n',
+
+	# Delete unknown signatures?
+	'keyedit.delsig.unknown' => 'y',
+
+	# Delete invalid signatures?
+	'keyedit.delsig.invalid' => 'y',
+
+	# Delete self-signatures?
+	'keyedit.delsig.selfsig' => 'n' ###
+};
+
+$IgnorePossibleBug = true
+# What's this?
+# Usually the encrypted mails are very small, but if they're big we have
+# to fight with blocking IO. 
+# Usually ours are small enough to avoid that problem.
+# If ksp-sign hangs during encrypting something went wrong and you 
+# should set this variable to `false'! But IT'S NOT RECOMMENDED.
+# The code for this is slow and buggy. But I didn't get around to get a 
+# better solution. You may send me a patch (the specific code is in the
+# functions readwritebuf and select_read).
+
+$lazy_mode = false;
+# don't change this without CAREFULLY READING THE README.
+# Better: NEVER CHANGE.
+# It's an untested feature, which can RUIN YOUR WHOLE WEB OF TRUST.
+
+####################################################################
+
+def keyring(name='signed')
+	"--trustdb-name #{$progdir}/trustdb.gpg --no-default-keyring --keyring #{$progdir}/#{name}.gpg --no-auto-check-trustdb"
+end
+
+def prettyprint(fpr) # return a prettier fingerprint
+	case fpr.length
+	when 32
+		fpr.upcase.gsub(/([0-9A-F]{2})/, '\1 ').chop
+	when 40
+		fpr.upcase.gsub(/([0-9A-F]{4})/, '\1 ').chop
+	else
+		fpr
+	end
+end
+
+def select_read(io)
+	ret = select([io],[],[],0.5)
+	if ret.nil?
+		false
+	else
+		true
+	end
+end
+
+# other variant:
+#def select_read(io)
+#	# whyever:
+#	sleep 0.5
+#	# this variant doesn't work without some waiting above
+#	# so we don't use it and use the timeout variant
+#	# above instead (which does the same, in fact)
+#	if select([io],[io])[0][0].nil?
+#		false
+#	else
+#		true
+#	end
+#end
+
+def readwritebuf(io, str, bufsiz=8192)
+	# something like that.
+	# NOTE this is nasty, buggy code
+	# TODO bugfix! ;)
+	
+	# if the bufsiz is != 8192:
+	#   - write chunks with <bufsiz> length
+	#   - read bytewise when possible
+	# if the bufsiz default of 8192 is used, the behaviour is different:
+	#   - write and read 8k chunks.
+	#   - 8k seems to be the right value on MY machine.
+	#     I hope it works everywhere :)
+
+	written = 0
+	offset = 0
+	ret = ''
+	begin
+		while select_read(io)
+			if bufsiz == 8192
+				ret << io.read(bufsiz)
+			else
+				ret << io.read(1)
+			end
+		end
+		# write chunks with <bufsiz> length
+		written = io.write(str[offset, bufsiz])
+		offset += written
+	end while written == bufsiz
+
+	ret
+end
+
+# handles interactively with gpg using the global $daw answers
+# * only --encrypt or --decrypt if a message is given! the return value
+#   will be the resulting message string
+# * otherwise the return value is the exitcode
+def gpg_auto_handle(options, password=nil, message=nil)
+	result = ''
+	IO.popen("gpg #{(password ? '--passphrase-fd 0 ':'')} --command-fd 0 --status-fd 1 #{options}", "r+") do |p|
+		p.puts password if password;
+		get=false
+		#while not p.eof? ###
+		p.each do |input|
+			#input=p.gets; ###
+			#printf "INPUT: #{input}";
+			if (/^\[GNUPG:\] GET/ === input)
+				keyword = input.split(/ /)[-1].chomp
+				if $daw[keyword]
+					p.puts $daw[keyword]
+				else
+					# this shouldn't happen
+					puts 'Unknown keyword. Please mail the author of this script!'
+					puts 'Decide on your own, please, or abort using C-c.'
+					puts input
+					print '? '
+					p.write STDIN.readline;
+				end
+			elsif (/^\[GNUPG:\] BEGIN_ENCRYPTION/ === input)
+				## Better use temporary files for encryption!
+				## With the whole buggy select() stuff it's
+				## nasty AND slow.
+				if message.nil?
+					raise "This should never happen! KSP-Sign seems to be broken." # :)
+				else
+					if $IgnorePossibleBug
+					## if message is bigger than the
+					## read buffer, writing will hang.
+						p.write message
+					else
+
+					## solution for now:
+					## 7168 is the bufsiz (on my machine it blocks after 
+					## 8196 bytes, so 7168 seems to be a good choice.
+					#result = readwritebuf(p, message, 7168)
+					## or optimized solution:
+						result = readwritebuf(p, message);
+					end
+
+					p.close_write
+					get=true
+				end
+			elsif (/^\[GNUPG:\] END_ENCRYPTION/ === input)
+				if get
+					get = false
+				end
+			elsif get
+				result << input
+			end
+		end
+	end
+	if message.nil?
+		$?.exitstatus
+	else
+		result
+	end
+end
+
+# returns true if answer is yes, false if answer is no
+# behaviour:
+#   if default is Y, only n* or N* mean no
+#   if default is N, only y* or Y* mean yes
+def askYN(str, default=false)
+	
+	print str+(default ? " (Y/n) " : " (y/N) ")
+	if default
+		not [?n, ?N].member?(STDIN.readline.lstrip[0])
+	else
+		[?y, ?Y].member?(STDIN.readline.lstrip[0])
+	end
+end
+
+# extracts the e-mail of an uid
+def extractmail(str)
+	str.sub(/^.*<(.*@.*)\>$/, '\1')
+end
+
+# extracts the name of an uid
+def extractname(str)
+	str.sub(/[ ]*[\(<].*$/, '').split.map do |word|
+		word.capitalize
+	end.join(' ')
+end
+
+def randomstring(len)
+	ret = ''
+	len.times do
+		ret << (rand(92)+33).chr
+	end
+	ret
+end
+
+# only 'export' l (a list of numbers) of uids (list of strings)
+def export_uid_only(pub, uids, l)
+	system("gpg --yes --no-armor #{keyring} -o #{$progdir}/attach.gpg --export #{pub}")
+	l.uniq!
+	gpg_auto_handle("#{keyring('attach')} --no-tty --edit-key #{pub} #{((1..uids.length).to_a-l).join ' '} deluid save") if (uids.length > 1) and (l.length < uids.length)
+	###gpg_auto_handle("#{keyring('attach')} --no-tty --edit-key #{pub} #{l.join ' '} delsig #{(1..uids.length).to_a.join ' '} deluid save") if (uids.length > 1) and (l.length < uids.length)
+	system("gpg --yes --armor #{keyring('attach')} -o #{$progdir}/attach.asc --export #{pub}")
+	#system("gpg #{keyring('attach')} --list-keys #{pub} ; read")
+end
+
+def signonlyfilename(pub, uid, ext='txt')
+	"#{$progdir}/signonly/key#{pub}_#{extractmail(uid).sub(/@/, '-at-')}.#{ext}"
+end
+
+
+# replace %keyid%, %uid%, etc in string str
+def replace_pubuid(str, pub, uid)
+	str.gsub(/%(\w*)%/) do |s|
+		case $1
+		when 'keyid'
+			pub
+		when 'uid'
+			uid
+		when 'name'
+			extractname(uid)
+		when 'email'
+			extractmail(uid)
+		when 'random'
+			ret = randomstring(45)
+			# save the string
+			File.open(signonlyfilename(pub, uid), 'w') do |f|
+				f.write ret
+			end
+			ret
+		else
+			raise "A %variable% in $text is not recognized: #{s}"
+		end
+	end
+end
+
+# return a PGP/MIME message
+def faked_mime_message(pub, uid, encrypt)
+	header = <<-EOF
+From: #{$from}
+To: #{extractname(uid)} <#{extractmail(uid)}>
+Subject: #{replace_pubuid($subject, pub, uid)}
+X-Mailer: KSP-Sign
+Mime-Version: 1.0
+	EOF
+	message = <<-EOF
+Content-Type: multipart/mixed; boundary="kspsignfoo"
+Content-Disposition: inline
+
+
+--kspsignfoo
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+#{replace_pubuid($text, pub, uid)}
+
+--kspsignfoo
+Content-Type: application/pgp-keys
+Content-Description: OpenPGP key 0x#{pub}
+Content-Disposition: attachment
+
+#{File.read($progdir+'/attach.asc')}
+
+--kspsignfoo--
+	EOF
+	
+	if encrypt
+		encryptedstr=gpg_auto_handle("--no-tty --armor #{keyring} -r #{pub} --encrypt", nil, message)
+		raise 'Could not encrypt' if encryptedstr.empty?
+		header+<<-EOF
+Content-Type: multipart/encrypted; protocol="application/pgp-encrypted";
+	boundary=kspsignenc
+Content-Disposition: inline
+
+
+--kspsignenc
+Content-Type: application/pgp-encrypted
+Content-Disposition: attachment
+
+Version: 1
+
+--kspsignenc
+Content-Type: application/octet-stream
+Content-Disposition: inline; filename="encmsg.asc"
+
+#{encryptedstr}
+
+--kspsignenc--
+		EOF
+	else
+		if $sign_only_secure
+			header+<<-EOF
+Content-Type: text/plain
+
+#{replace_pubuid($sign_only_text, pub, uid)}
+			EOF
+		else
+			header+message
+		end
+	end
+end
+
+# ask if you really want and sends mail if `yes' has been chosen ;)
+def send_mail(pub, fpr, uids, encryptable)
+	always = []; # `always' and `never' are lists for special behaviour like uids without e-mail address  and photo ids
+	never = []; # `never' overrides `always'
+	# `never' is always a subset of `always' :)
+	
+	# by default always sign email-less uids and photo ids
+	uids.each_with_index do |uid, i|
+		always.push(i+1) if uid[1] and ((uid.first === :photo_id) or (uid.first !~ /<.*@.*>$/))
+	end
+
+	unless $lazy_mode
+		questionstr = 'Shall I mail '
+
+		puts "\nkey 0x#{pub}\nfpr #{prettyprint(fpr)}"
+		uids.each do |uid|
+			puts " *  #{uid.first}" if uid[1]
+		end
+		
+		if encryptable
+			questionstr << 'the signatures'
+		else
+			puts 'This is a sign-only key.'
+			if $sign_only_secure
+				questionstr << 'verification instructions'
+			else
+				questionstr << 'the signatures (not encrypted)'
+			end
+		end
+		puts 'Please compare the fingerprint with your key signing party data sheet.'
+		unless askYN("\n#{questionstr}?\n[Say only y if the fingerprint is correct!]")
+			puts '-> Not signed.'
+			return
+		else
+			# ask for email-less uids and photo ids
+			uids.each_with_index do |uid, i|
+				if uid[1]
+					if uid.first === :photo_id
+						puts " -> Key contains a photo id  [trying to show...]"
+						system("gpg #{keyring} --list-options show-photos --list-key #{pub} 2>&1 >/dev/null &");
+						never.push(i+1) unless askYN("    Sign it?", true)
+					elsif uid.first !~ /<.*@.*>$/
+						never.push(i+1) unless askYN(" -> `#{uid.first}'\n    is an uid without e-mail address. Sign?", true)
+					end
+				end
+			end
+		end
+	end
+
+	puts '-> Sending mail...'
+	
+	gpg_auto_handle("#{keyring} --no-tty --edit-key #{pub} #{(1..uids.length).to_a.join ' '} delsig save")
+	# The delsig code is not optimal (not all signatures are deleted)
+	# But I'm too lazy to make it. (TODO)
+	
+	uids.each_with_index do |uid, i|
+		if uid[1] and not always.member?(i+1)
+			export_uid_only(pub, uids, ([i+1]+always)-never)
+
+			mail=faked_mime_message(pub, uid[0], encryptable)
+			if $sendmail
+				IO.popen("/usr/sbin/sendmail -f '#{extractmail($from)}' '#{extractmail(uid[0])}'", "w") do |p|
+					p.write mail
+				end
+			else
+				File.open($progdir+'/mbox', 'a') do |mbox|
+					mbox.puts "From #{extractmail($from)} #{Time.now}"
+					mbox.write mail
+					mbox.puts
+				end
+			end
+
+			# save the signature, armored
+			File.copy($progdir+'/attach.asc', signonlyfilename(pub, uid[0], 'asc')) if $sign_only_secure and not encryptable
+		end
+	end
+	nil
+end
+
+######################################
+
+# the prelude
+require 'ftools' # only for File.copy
+
+print "KSP-Sign 20050401test, (C) Stephan Beyer <s-beyer@gmx.net>, 2005, GPL\n\n"
+
+if ARGV.length != 1
+	STDERR.puts "Usage: #{$0} keyring-in-.gnupg"
+	puts 'IMPORTANT: Please read the `README\' file first!'
+	exit 1
+end
+raise "File #{ARGV[0]} not readable!" unless File.readable? ARGV[0]
+
+puts "Preparing... this may take some time"
+
+if File.directory?($progdir)
+	# necessary cleanup of previous sessions
+	File.delete($progdir+'/unsigned.gpg')
+	File.delete($progdir+'/trustdb.gpg')
+else
+	# generate directory
+	Dir.mkdir($progdir)
+	Dir.mkdir($progdir+'/signonly') unless File.directory?($progdir+'/signonly')
+end
+
+system("gpg #{keyring('unsigned')} --import #{ARGV[0]}")
+unless $?.success?
+	puts "An error occured!"
+	exit 1
+end
+# Don't just copy, because keyring could be armored
+# and GnuPG doesn't accept armored keyrings. Whyever.
+
+# refresh keys from keyservers?
+system("gpg #{keyring('unsigned')} --refresh") if $refreshkeyring
+
+##system("gpg #{keyring('unsigned')} --check-trustdb")
+
+File.copy($progdir+'/unsigned.gpg',$progdir+'/signed.gpg')
+
+begin
+	require 'termios'
+	oldt = Termios.tcgetattr(STDIN)
+	newt = oldt.dup
+	newt.lflag &= ~Termios::ECHO
+	begin
+		Termios.tcsetattr(STDIN, Termios::TCSANOW, newt)
+		print "Passphrase: "
+		password = STDIN.readline.chomp
+	ensure
+		Termios.tcsetattr(STDIN, Termios::TCSANOW, oldt)
+	end
+	puts
+rescue LoadError
+	puts "Warning: Ruby-Termios is not installed. Passphrase input will be visible!"
+	print "Passphrase: "
+	password = STDIN.readline.chomp;
+rescue EOFError
+	puts "\nNo passphrase? Exiting."
+	exit 2
+end
+
+puts "Please wait... (and ignore the trustdb warnings)"
+
+keys=`gpg #{keyring} --fast-list-mode --with-colons --list-keys | grep '^pub'`.split(/\n/).map { |i| i.split(/:/)[4] }
+keys.each do |i|
+	raise "GnuPG errored. Abort." if gpg_auto_handle("--no-tty #{keyring} --sign-key 0x#{i}", password) == 2
+end
+
+puts '-'*65
+
+# It's a pity that gpg doesn't properly inform us about
+# the uids which were changed and which weren't changed.
+# So we have to do some more time-wasting stuff ;)
+
+ukeys=`gpg #{keyring('unsigned')} --fixed-list-mode --with-fingerprint --with-colons --list-sigs`.split(/\n/)
+skeys=`gpg #{keyring} --fixed-list-mode --with-fingerprint --with-colons --list-sigs`.split(/\n/)
+
+# Now we have to 'diff' each uid
+i = 0
+pub, fpr, uids, can_encrypt = "", "", [], false
+ukeys.each do |e|
+	while (skeys[i] != e) and (i < skeys.length)
+		uids.last.push true
+		i+=1;
+	end if e !~ /^tru:/
+
+	case e
+	when /^pub:/
+		send_mail(pub, fpr, uids, can_encrypt) if uids.find {|f| f[1]}
+		uids.clear
+		pub = e.split(/:/)[4]
+		can_encrypt = !(e.split(/:/)[11].to_s =~ /e/i).nil?
+	when /^uid:/
+		uids.push [e.split(/:/)[9]]
+	when /^uat:/
+		uids.push [:photo_id]
+	when /^fpr:/
+		fpr = e.split(/:/)[9]
+	when /^sub:/
+		can_encrypt = true if !(e.split(/:/)[11].to_s =~ /e/i).nil?
+	end
+	i+=1
+end
+
+# don't forget the last in the list ;)
+if skeys[i..-1].length > 0
+		uids.last.push true
+end
+send_mail(pub, fpr, uids, can_encrypt) if uids.find {|f| f[1]}
