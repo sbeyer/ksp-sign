@@ -376,8 +376,8 @@ end
 
 print "KSP-Sign 20140103, (C) 2005-2014 Stephan Beyer <s-beyer@gmx.net>, GNU GPL2\n\n"
 
-if ARGV.length != 1
-	STDERR.puts "Usage: #{$0} keyring-in-.gnupg"
+if ARGV.length < 1
+	STDERR.puts "Usage: #{$0} keyring-in-.gnupg [keyid-of-key-to-sign-with ...]"
 	exit 1
 end
 raise "File #{ARGV[0]} not readable!" unless File.readable? ARGV[0]
@@ -405,38 +405,58 @@ end
 # refresh keys from keyservers?
 system("#{Gnupg} #{keyring('unsigned')} --refresh") if $refreshkeyring
 
-##system("#{Gnupg} #{keyring('unsigned')} --check-trustdb")
-
 FileUtils.copy_file($progdir+'/unsigned.gpg',$progdir+'/signed.gpg')
 
-begin
-	require 'termios'
-	oldt = Termios.tcgetattr(STDIN)
-	newt = oldt.dup
-	newt.lflag &= ~Termios::ECHO
+default_keys = ARGV[1..-1]
+default_keys = [nil] if default_keys.empty?
+password = []
+default_keys.each do |default_key|
 	begin
-		Termios.tcsetattr(STDIN, Termios::TCSANOW, newt)
-		print "Passphrase: "
-		password = STDIN.readline.chomp
-	ensure
-		Termios.tcsetattr(STDIN, Termios::TCSANOW, oldt)
+		require 'termios'
+		oldt = Termios.tcgetattr(STDIN)
+		newt = oldt.dup
+		newt.lflag &= ~Termios::ECHO
+		begin
+			Termios.tcsetattr(STDIN, Termios::TCSANOW, newt)
+			if default_key.nil?
+				print "Passphrase: "
+			else
+				print "Passphrase for key #{default_key}: "
+			end
+			password << STDIN.readline.chomp
+		ensure
+			Termios.tcsetattr(STDIN, Termios::TCSANOW, oldt)
+		end
+		puts
+	rescue LoadError
+		puts "Warning: Ruby-Termios is not installed. Passphrase input will be visible!"
+		if default_key.nil?
+			print "Passphrase: "
+		else
+			print "Passphrase for key #{default_key}: "
+		end
+		password << STDIN.readline.chomp;
+	rescue EOFError
+		puts "\nNo passphrase? Exiting."
+		exit 2
 	end
-	puts
-rescue LoadError
-	puts "Warning: Ruby-Termios is not installed. Passphrase input will be visible!"
-	print "Passphrase: "
-	password = STDIN.readline.chomp;
-rescue EOFError
-	puts "\nNo passphrase? Exiting."
-	exit 2
 end
+default_keys = [] if default_keys[0].nil?
 
 puts "Please wait... (and ignore the trustdb warnings)"
 
+# now sign all keys
 keys=`#{Gnupg} #{keyring} --fast-list-mode --with-colons --list-keys | grep '^pub'`.split(/\n/).map { |i| i.split(/:/)[4] }
 keys.each do |i|
-	raise "GnuPG errored. Abort." if gpg_auto_handle("--no-tty #{keyring} --sign-key 0x#{i}", password) == 2
+	if default_keys.empty?
+		raise "GnuPG errored. Abort." if gpg_auto_handle("--no-tty #{keyring} --sign-key 0x#{i}", password[0]) == 2
+	else
+		default_keys.each_with_index do |default_key, key_index|
+			raise "GnuPG errored. Abort." if gpg_auto_handle("--default-key '#{default_key}' --no-tty #{keyring} --sign-key 0x#{i}", password[key_index]) == 2
+		end
+	end
 end
+password = nil
 
 puts '-'*65
 

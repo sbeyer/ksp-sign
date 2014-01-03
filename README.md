@@ -136,9 +136,14 @@ To begin, start ksp-sign with
 
     ./ksp-sign keyringfile
 
-Now type your passphrase (WARNING1: If the Ruby-Termios library isn't
-installed, everyone looking at the screen can see it!! WARNING2: The
-passphrase is put into insecure memory!!).
+If you have multiple keys and want to sign the keyring with them, use
+
+    ./ksp-sign keyringfile keyid1 keyid2
+
+Now KSP-Sign asks you for the passphrase(s).
+WARNING1: If the Ruby-Termios library isn't installed, everyone looking
+at the screen can see it!
+WARNING2: The passphrase is put into insecure memory!
 
 I guess you have to wait some seconds until you are shown key id,
 fingerprint and newly signed uids. Here KSP-Sign asks you to confirm the
