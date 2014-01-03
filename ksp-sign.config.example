@@ -1,0 +1,208 @@
+#################### BASIC CONFIGURATION ####################
+####################### for ksp-sign ########################
+
+##### $from represents the From: header of your mail
+##### It is sufficient to change the name and mail variable
+name = 'First and Last Name'
+mail = 'email@domain.to'
+$from = "#{name} <#{mail}>"
+
+
+##### $subject represents the Subject: header of your mail
+##### and $text - what do you think? - the mail text.
+# available variables which can be used in $subject, $text:
+#  %keyid% = long key ID
+#  %name% = name part of the uid
+#  %uid% = whole uid (without photo id and non-email uid)
+
+# These values are suggestions where you just need to modify `event'.
+# Maybe it's better if you edit the whole subject and text.
+event = 'big event with KSP'
+$subject = "Your signed key 0x%keyid% (#{event})"
+
+$text = <<EOF
+Hi %name%,
+
+this is an automatic mail being sent to you because we verified
+our personalities and exchanged fingerprints at the
+	#{event}.
+
+I have signed your user-id
+	%uid%
+and the signature is attached to this mail.
+
+This mail may also contain signatures for a photo id or a user
+id without e-mail address.
+
+I did NOT send your signed key to a keyserver.
+You can do that using
+	gpg --send-keys %keyid%
+
+Best regards,
+#{name}
+
+PS: Please don't forget to sign my key, too, if you have not 
+done that yet.
+
+-- 
+Mail generated using https://github.com/sbeyer/ksp-sign
+EOF
+### The signature above is some advertising for my script (or the 
+### opposite if it's crap). Feel free to replace it with your
+### signature.
+
+
+### $sign_only_secure represents the way of dealing with sign-only keys.
+### See the README :)
+# Set this to `false' to send an unencrypted signed key.
+# Set this to `true' to send a mail with verification instructions.
+$sign_only_secure = true
+
+# true and false are case-sensitive! Write small letters!
+# `False' or `True' will result in a NameError.
+
+
+### $sign_only_text represents the text of a mail sending to a sign-only
+#### key owner if $sign_only_secure is true.
+# In $sign_only_text you should use the variable %random%, which will
+# be replaced by a random string.
+$sign_only_text = <<EOF
+Hi %name%,
+
+this is an automatic mail being sent to you because we verified
+our personalities and exchanged fingerprints at
+	#{event}.
+
+Because I want to sign your sign-only key 0x%keyid%,
+I need a reply from you which is _signed with that mentioned key_.
+
+In addition, the reply should contain the following random string
+to indicate that it's YOU who sends the signed reply, and not
+someone else:
+	%random%
+
+When I got your reply, I will send you the signature for the uid
+	%uid%
+Just tell me, if I should upload your key to a keyserver instead.
+
+Best regards,
+#{name}
+
+-- 
+Mail generated using https://github.com/sbeyer/ksp-sign
+EOF
+
+### $sendmail:
+# Set this to `true' to send mail via `sendmail' automatically.
+# Set this to `false' to generate a mutt-compatible mbox 
+$sendmail = false
+
+# again: `true' and `false' are case-sensitive.
+
+### $refreshkeyring:
+# Set this to `true' to fetch updated keys from a keyserver
+# Set this to `false' to keep the keys as they are
+$refreshkeyring = false
+
+# Advice about keyservers: Use subkeys.pgp.net or even better:
+# sks.keyserver.penguin.de in your gpg.conf! Don't use pgp.mit.edu!
+
+Gnupg = '/usr/bin/gpg'
+# path to GnuPG executable
+
+# Thank you for trying/using KSP-Sign.
+# Feel free to send feedback, suggestions, bug reports, patches, 
+# donations (via PayPal) to s-beyer@gmx.net :)
+# Avoid sending SPAM or mails looking like spam.
+#################### END OF BASIC CONFIGURATION ####################
+
+
+
+
+####################################################################
+# It's NOT recommended to change ANY of the following values.
+
+$progdir = ENV['HOME']+'/.ksp-sign'
+
+$daw ={
+# Default answers to questions:
+# Those marked with ### at the end of the line are rather arguable default
+# values, but you shouldn't change the other values.
+# Changing them could lead to undefined behaviour 
+	# Sign ALL uids?
+	'keyedit.sign_all.okay' => 'y',
+
+	# Really delete all uids?
+	'keyedit.remove.uid.okay' => 'y',
+
+	# Encrypt to untrusted keys?
+	'untrusted_key.override' => 'y',
+
+	# Signature expired, replace by new sig?
+	'sign_uid.replace_expired_okay' => 'y',
+
+	# Local signature -> Exportable signature
+	'sign_uid.local_promote_okay' => 'y',
+
+	# This key is due to expire on YYYY-MM-DD 
+	# Should the Signature expire at the same time?
+	'sign_uid.expire' => 'n',
+
+	# Cert class? sig0, sig1, sig2, sig3?
+	'sign_uid.class' => '3', ### (only if ask-cert-level is set)
+
+	# Really sign?
+	'sign_uid.okay' => 'y',
+
+	# key is revoked, still sign?
+	'keyedit.sign_revoked.okay' => 'n',
+
+	# Uid has revoked/expired - Still sign?
+	'sign_uid.revoke_okay' => 'n',
+	'sign_uid.expired_okay' => 'n',
+
+	# UID not self-signed. Sign anyway?
+	'sign_uid.nosig_okay' => 'n',
+
+	# PGP2 selfsig -> OpenPGP selfsig?
+	'sign_uid.v4_promote_okay' => 'y', ###
+
+	# Already signed, sign again?
+	'sign_uid.dupe_okay' => 'n',
+
+	# Key has expired, still sign?
+	'sign_uid.expired_okay' => 'n',
+
+	# v4 sig on v3? (unusuable for PGP 2.x)
+	'sign_uid.v4_on_v3_okay' => 'n',
+
+	# Delete good signatures?
+	'keyedit.delsig.valid' => 'n',
+
+	# Delete unknown signatures?
+	'keyedit.delsig.unknown' => 'y',
+
+	# Delete invalid signatures?
+	'keyedit.delsig.invalid' => 'y',
+
+	# Delete self-signatures?
+	'keyedit.delsig.selfsig' => 'n' ###
+};
+
+$IgnorePossibleBug = true
+# What's this?
+# Usually the encrypted mails are very small, but if they're big we have
+# to fight with blocking IO. 
+# Usually ours are small enough to avoid that problem.
+# If ksp-sign hangs during encrypting something went wrong and you 
+# should set this variable to `false'! But IT'S NOT RECOMMENDED.
+# The code for this is slow and buggy. But I didn't get around to get a 
+# better solution. You may send me a patch (the specific code is in the
+# functions readwritebuf and select_read).
+
+$lazy_mode = false;
+# don't change this without CAREFULLY READING THE README.
+# Better: NEVER CHANGE.
+# It's an untested feature, which can RUIN YOUR WHOLE WEB OF TRUST.
+
+####################################################################

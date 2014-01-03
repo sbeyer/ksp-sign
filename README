@@ -1,23 +1,21 @@
 KSP-Sign
                 ... a signing tool for lazy people after keysigning parties
 
-
-(C) Stephan Beyer, 2005
-
-File creation date: 2005-03-11
-Last update: 2005-04-01 :)
+(C) Stephan Beyer, 2005 - 2014
 
 Requirements:
 	* UNIX-like OS
-	* GnuPG (only tested with 1.4.0, COULD work with 1.2, too)
-	* Ruby 1.8 interpreter
+	* GnuPG (only tested with 1.4.14)
+	* Ruby 1.9+ interpreter
+	either:
 	* a running connection to the internet and /usr/sbin/sendmail
+	or:
+	* a mail user agent capable of reading mbox files
 
 Recommended:
-	* Ruby-Termios 0.9.4
-	  (apt-get install libtermios-ruby1.8 or 
-	   http://arika.org/ruby/termios)
-
+	* Ruby-Termios
+	  (apt-get install ruby-termios
+	   or get it from http://arika.org/ruby/termios)
 
 License: GNU GPL2
 	This also means: NO WARRANTY!
@@ -77,13 +75,15 @@ trustdb    is  used.   But   because   it's   faster,   the          option
 
 3.1 Configuration
 
-Take your favourite editor  (Ruby syntax highlighting  is nice for editing)
-and edit the  `ksp-sign'  file. The top  of that file  contains the  `basic
-configuration'. Because ksp-sign is able to send mails, you should at least
-edit the `$from'  and (if you choose my  suggestion) the  `event' variable.
+Take the file `ksp-sign.config.example' and make a copy of it named
+`ksp-sign.config.rb'.  Take your favourite editor (Ruby syntax highlighting
+is nice for editing) and edit the `ksp-sign.config.rb' file. The top of that
+file contains the `basic configuration'. Because ksp-sign is able to send
+mails, you should at least edit the `$from' and (if you choose my
+suggestion) the `event' variable.
 You can also remove  the line with the  event variable and  edit `$subject'
 and `$text' yourself. You can and should  use special %variables% - they're
-introduced in the comments above. I  think that's not to hard to configure.
+introduced in the comments above. I think that's not too hard to configure.
 
 Next there is  the sign-only  feature:  We cannot send  encrypted  mails to
 users with a sign-only key. But the  encryption is important to ensure that
@@ -105,8 +105,6 @@ The `$sign_only_text'  variable contains  the mail text  being sent, giving
 instructions how  the verification  process works. It will  only be used if
 `$sign_only_secure' is `true'.
 
-I hope my English isn't too bad in my texts. :)
-
 Last but not least there are two booleans  to set: A true `$refreshkeyring'
 lets KSP-Sign update the  keyring from your standard  keyserver. The update
 process may take  some time and  isn't always  useful, so I  usually choose
@@ -120,6 +118,9 @@ There you can see how the generated mails look like.
 
 I considered using Maildir, but the script is written for me and I use mbox
 ;) So I could copy it to ~/Mail/postponed and send the mails using mutt.
+Or one can choose to use an mbox sending script like the one that can be
+found here:
+  https://gist.github.com/sbeyer/8230267
 
 
 3.2 Invocation
@@ -176,7 +177,7 @@ into the original script :)
 KSP-Sign is unrobust (...unstable, unportable, ...) by definition, or let's
 say: broken by design. But it works - at least on my machine. :)
 
-I `sending  mail'  hangs,  you have  to active  the    `$IgnorePossibleBug'
+If  `sending  mail'  hangs,  you have  to active  the  `$IgnorePossibleBug'
 variable some lines below the basic  configuration part in the source. Then
 KSP-Sign uses nasty and  slow code to avoid blocking  IO. It never happened
 to me, so the priority was low to get a suitable solution.
