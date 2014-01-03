@@ -8,9 +8,6 @@
 # with an `#') carefully. You should only change the BASIC CONFIGURATION
 # except you REALLY know what you're doing.
 
-# The README file can be found at
-# http://pkqs.net/~sbeyer/tools/ksp-sign/README
-
 def keyring(name='signed')
 	"--trustdb-name #{$progdir}/trustdb.gpg --no-default-keyring --keyring #{$progdir}/#{name}.gpg --no-auto-check-trustdb"
 end
