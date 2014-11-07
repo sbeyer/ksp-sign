@@ -374,7 +374,7 @@ rescue LoadError
 	exit 3
 end
 
-print "KSP-Sign 20140103, (C) 2005-2014 Stephan Beyer <s-beyer@gmx.net>, GNU GPL2\n\n"
+print "KSP-Sign 20141108, (C) 2005-2014 Stephan Beyer <s-beyer@gmx.net>, GNU GPL2\n\n"
 
 if ARGV.length < 1
 	STDERR.puts "Usage: #{$0} keyring-in-.gnupg [keyid-of-key-to-sign-with ...]"
@@ -470,32 +470,43 @@ skeys=`#{Gnupg} #{keyring} --fixed-list-mode --with-fingerprint --with-colons --
 # Now we have to 'diff' each uid
 i = 0
 pub, fpr, uids, can_encrypt = "", "", [], false
+usigs, ssigs = [], []
 ukeys.each do |e|
-	while (skeys[i] != e) and (i < skeys.length)
-		uids.last.push true
-		i+=1;
-	end if e !~ /^tru:/
+	if e =~ /^sig/
+		usigs << e
+	else
+		# GnuPG may re-order signatures, so we collect them
+		while (i < skeys.length) and (skeys[i] =~ /^sig:/)
+			ssigs << skeys[i]
+			i += 1;
+		end
+		if (ssigs - usigs).length > 0
+			uids.last.push true
+		end
+		usigs, ssigs = [], []
 
-	case e
-	when /^pub:/
-		send_mail(pub, fpr, uids, can_encrypt) if uids.find {|f| f[1]}
-		uids.clear
-		pub = e.split(/:/)[4]
-		can_encrypt = !(e.split(/:/)[11].to_s =~ /e/i).nil?
-	when /^uid:/
-		uids.push [e.split(/:/)[9]]
-	when /^uat:/
-		uids.push [:photo_id]
-	when /^fpr:/
-		fpr = e.split(/:/)[9]
-	when /^sub:/
-		can_encrypt = true if !(e.split(/:/)[11].to_s =~ /e/i).nil?
+		raise "Should not happen!" if i < skeys.length and e != skeys[i]
+		case e
+		when /^pub:/
+			send_mail(pub, fpr, uids, can_encrypt) if uids.find {|f| f[1]}
+			uids.clear
+			pub = e.split(/:/)[4]
+			can_encrypt = !(e.split(/:/)[11].to_s =~ /e/i).nil?
+		when /^uid:/
+			uids.push [e.split(/:/)[9]]
+		when /^uat:/
+			uids.push [:photo_id]
+		when /^fpr:/
+			fpr = e.split(/:/)[9]
+		when /^sub:/
+			can_encrypt = true if !(e.split(/:/)[11].to_s =~ /e/i).nil?
+		end
+		i += 1
 	end
-	i+=1
 end
 
 # don't forget the last in the list ;)
 if skeys[i..-1].length > 0
-		uids.last.push true
+	uids.last.push true
 end
 send_mail(pub, fpr, uids, can_encrypt) if uids.find {|f| f[1]}
